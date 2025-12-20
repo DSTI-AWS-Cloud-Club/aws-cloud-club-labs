@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sentiment Analyzer</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        textarea { 
+            width: 100%; 
+            height: 100px; 
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+        }
+        button { 
+            padding: 12px 30px; 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border-radius: 5px;
+            display: none;
+        }
+        #result.show {
+            display: block;
+        }
+        .positive { background: #d4edda; border-left: 4px solid #28a745; }
+        .negative { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .neutral { background: #d1ecf1; border-left: 4px solid #17a2b8; }
+        .mixed { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .score-list {
+            list-style: none;
+            padding: 0;
+        }
+        .score-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Sentiment Analyzer</h1>
+        <p>Enter text below to analyze its sentiment using AWS AI:</p>
+        <textarea id="textInput" placeholder="Enter text to analyze...">I love this product! It's amazing!</textarea>
+        <button onclick="analyzeSentiment()">Analyze Sentiment</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // ⚠️ REPLACE WITH YOUR ACTUAL API URL
+        const API_URL = 'https://xc8qiwd2z8.execute-api.us-east-1.amazonaws.com/Testing/analyze';
+
+        async function analyzeSentiment() {
+            const text = document.getElementById('textInput').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!text.trim()) {
+                resultDiv.className = 'show';
+                resultDiv.innerHTML = '⚠️ Please enter some text';
+                return;
+            }
+
+            resultDiv.className = 'show';
+            resultDiv.innerHTML = '⏳ Analyzing...';
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                const sentiment = data.sentiment.toLowerCase();
+                resultDiv.className = `show ${sentiment}`;
+                resultDiv.innerHTML = `
+                    <h3>Sentiment: ${data.sentiment}</h3>
+                    <p><strong>Confidence:</strong> ${(data.confidence * 100).toFixed(2)}%</p>
+                    <h4>Detailed Scores:</h4>
+                    <ul class="score-list">
+                        <li>✅ Positive: ${(data.scores.Positive * 100).toFixed(2)}%</li>
+                        <li>❌ Negative: ${(data.scores.Negative * 100).toFixed(2)}%</li>
+                        <li>➖ Neutral: ${(data.scores.Neutral * 100).toFixed(2)}%</li>
+                        <li>🔀 Mixed: ${(data.scores.Mixed * 100).toFixed(2)}%</li>
+                    </ul>
+                `;
+            } catch (error) {
+                resultDiv.className = 'show';
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
