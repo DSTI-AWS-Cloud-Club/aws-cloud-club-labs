@@ -15,6 +15,8 @@ Lambda Function
     ↓
 Amazon Comprehend (AI Sentiment Analysis)
     ↓
+DynamoDB (Store Results)
+    ↓
 Response (JSON with sentiment results)
 ```
 
@@ -23,9 +25,9 @@ Response (JSON with sentiment results)
 - **API Gateway**: REST API endpoint to receive HTTP requests
 - **Lambda**: Serverless compute to process requests
 - **Amazon Comprehend**: AI/ML service for sentiment analysis
+- **DynamoDB**: NoSQL database to store sentiment analysis history
 - **IAM**: Permissions management
 - **CloudWatch**: Logging and monitoring
-
 
 ---
 
@@ -40,29 +42,25 @@ Response (JSON with sentiment results)
 
 ## 🚀 Step-by-Step Instructions
 
-### Step 1: Create IAM Role for Lambda (5 minutes)
+### Step 1: Create DynamoDB Table (5 minutes)
 
-Lambda needs permission to write logs and call Amazon Comprehend.
+1. **Navigate to DynamoDB Console**
+   - Search for "DynamoDB" in AWS Console
+   - Click **Create table**
 
-1. **Navigate to IAM Console**
-   - Search for "IAM" in AWS Console search bar
-   - Click **Roles** in left sidebar
-   - Click **Create role**
-
-2. **Select Trusted Entity**
-   - Choose: **AWS Service**
-   - Use case: **Lambda**
-   - Click **Next**
-
-3. **Add Permissions** (Search and attach these policies)
-   - ✅ `AWSLambdaBasicExecutionRole` (for CloudWatch logs)
-   - ✅ `ComprehendFullAccess` (for Comprehend API access)
+2. **Configure Table**
+   - Table name: `SentimentAnalysisHistory`
+   - Partition key: `id` (String)
+   - Sort key: `timestamp` (Number)
    
-   > ⚠️ **Important**: `ComprehendReadOnly` is NOT sufficient! It only allows reading Comprehend configurations, not calling the sentiment analysis API. You must use `ComprehendFullAccess` or create a custom policy with `comprehend:DetectSentiment` permission.
-
-4. **Name the Role**
-   - Role name: `SentimentAnalysisLambdaRole`
-   - Click **Create role**
+3. **Table Settings**
+   - Table class: **DynamoDB Standard**
+   - Capacity mode: **On-demand** (pay per request)
+   
+4. **Create Table**
+   - Leave all other settings as default
+   - Click **Create table**
+   - Wait ~30 seconds for table to become Active
 
 ---
 
@@ -77,71 +75,27 @@ Lambda needs permission to write logs and call Amazon Comprehend.
    - Function name: `SentimentAnalyzer`
    - Runtime: **Python 3.11** (or latest Python 3.x)
    - Architecture: **x86_64** (default)
-   - Execution role: **Use an existing role**
-   - Select: `SentimentAnalysisLambdaRole`
    - Click **Create function**
 
-3. **Add Lambda Code**
+3. **Configure Permissions**
+   - Click **Configuration** tab
+   - Click **Permissions** in left sidebar
+   - Click on the **Role name** (opens IAM in new tab)
+   - In IAM, click **Add permissions** → **Attach policies**
+   - Search and attach these policies:
+     - `AWSLambdaBasicExecutionRole` (should already be attached)
+     - `ComprehendFullAccess`
+     - `AmazonDynamoDBFullAccess`
+   - Click **Add permissions**
+
+4. **Add Lambda Code**
    
-   Replace the default code with:
+   Refer to `lambda_function.py` file for the complete code.
 
-```python
-import json
-import boto3
-
-comprehend = boto3.client('comprehend', region_name='us-east-1')
-
-def lambda_handler(event, context):
-    try:
-        # Parse input
-        if 'body' in event:
-            body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
-        else:
-            body = event
-        
-        text = body.get('text', '')
-        
-        if not text:
-            return {
-                'statusCode': 400,
-                'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps({'error': 'No text provided'})
-            }
-        
-        # Call Comprehend
-        response = comprehend.detect_sentiment(
-            Text=text,
-            LanguageCode='en'
-        )
-        
-        # Format response
-        result = {
-            'sentiment': response['Sentiment'],
-            'confidence': max(response['SentimentScore'].values()),
-            'scores': response['SentimentScore']
-        }
-        
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps(result)
-        }
-        
-    except Exception as e:
-        return {
-            'statusCode': 500,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': str(e)})
-        }
-```
-
-4. **Deploy the Function**
+5. **Deploy the Function**
    - Click **Deploy** button (orange button at top)
 
-5. **Test Lambda Directly**
+6. **Test Lambda Directly**
    - Click **Test** tab
    - Click **Create new event**
    - Event name: `TestSentiment`
@@ -267,6 +221,7 @@ curl -X POST https://YOUR-API-URL/prod/analyze \
 }
 ```
 
+> 💡 **Note**: This request also saves the analysis to DynamoDB for future reference!
 
 ### Test 2: Using Postman
 
@@ -293,6 +248,38 @@ curl -X POST https://YOUR-API-URL/prod/analyze \
 
 ---
 
+## 📊 Viewing Stored Data in DynamoDB
+
+### View Your Analysis History
+
+1. **Navigate to DynamoDB Console**
+   - Search for "DynamoDB" in AWS Console
+   - Click **Tables** in left sidebar
+
+2. **Select Your Table**
+   - Click on `SentimentAnalysisHistory`
+
+3. **View Items**
+   - Click **"Explore table items"** button (top right)
+   - You'll see all sentiment analyses in a table view
+   - Each row shows: `id`, `timestamp`, `request_text`, `sentiment`, `confidence`, `scores`
+
+4. **View Individual Records**
+   - Click on any item to see full JSON details
+
+### Query Your Data
+
+You can filter and query your stored data:
+
+1. In **"Explore table items"** view
+2. Click **"Scan or query items"**
+3. Add filters:
+   - Filter by sentiment: `sentiment = POSITIVE`
+   - Filter by confidence: `confidence > 0.9`
+   - Filter by text: `request_text contains love`
+
+---
+
 ## 📊 Understanding the Response
 
 ### Response Structure
@@ -316,6 +303,7 @@ curl -X POST https://YOUR-API-URL/prod/analyze \
 
 ✅ **Serverless REST API** - No servers to manage, auto-scales  
 ✅ **AI-Powered Analysis** - Using AWS managed AI service  
+✅ **Data Persistence** - All analyses stored in DynamoDB  
 ✅ **Production-Ready** - Proper error handling and CORS support  
 ✅ **Cost-Effective** - Pay only for what you use  
 ✅ **Secure** - TLS 1.3 encryption, IAM permissions  
@@ -346,6 +334,7 @@ You successfully built a complete serverless AI sentiment analysis pipeline usin
 - **API Gateway** for REST endpoint
 - **Lambda** for serverless compute
 - **Comprehend** for AI-powered sentiment analysis
+- **DynamoDB** for storing analysis history
 - **IAM** for security and permissions
 
 **Total setup time**: Under 1 hour  
