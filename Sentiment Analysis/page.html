@@ -76,8 +76,7 @@
     </div>
 
     <script>
-        // ⚠️ REPLACE WITH YOUR ACTUAL API URL
-        const API_URL = 'https://xc8qiwd2z8.execute-api.us-east-1.amazonaws.com/Testing/analyze';
+        const API_URL = '<REPLACE_WITH_YOUR_API_URL>';
 
         async function analyzeSentiment() {
             const text = document.getElementById('textInput').value;
@@ -127,3 +126,10 @@
     </script>
 </body>
 </html>
+
+
+
+
+curl -X POST https://jn9tq9b7ie.execute-api.us-east-1.amazonaws.com/dev/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "I love this product, it's amazing!"}'

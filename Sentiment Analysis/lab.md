@@ -6,19 +6,7 @@ Build a serverless AI-powered sentiment analysis API using AWS services in under
 
 ### Architecture
 
-```
-Client (Browser/Postman/curl)
-    ↓
-API Gateway (REST API)
-    ↓
-Lambda Function
-    ↓
-Amazon Comprehend (AI Sentiment Analysis)
-    ↓
-DynamoDB (Store Results)
-    ↓
-Response (JSON with sentiment results)
-```
+![Architecture](./images/Architecture.png)
 
 ### AWS Services Used
 
